@@ -21,6 +21,40 @@ const secrets = [
 app.get("/users", (req, res) => {
   res.send(users);
 });
+
+app.post("/login", async (req, res) => {
+  try {
+    const username = req.body.username;
+    const password = req.body.password;
+    const user = users.find(user => user.username === username);
+    if (user) {
+      const valid = await bcrypt.compare(password, user.password);
+      if (valid) {
+        res.status(200).send({
+          status: "Success",
+          message: "Logged In"
+        });
+      } else {
+        res.status(400).send({
+          status: "fail",
+          message: "Not Allowed"
+        });
+      }
+    } else {
+      res.status(400).send({
+        status: "fail",
+        message: "Cannot find user"
+      });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({
+      status: "fail",
+      message: error.message
+    });
+  }
+});
+
 app.post("/register", async (req, res) => {
   try {
     console.log(req.body);
