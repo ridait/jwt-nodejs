@@ -1,8 +1,10 @@
+const dotenv = require("dotenv");
 const express = require("express");
 const bodyParser = require("body-parser");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
+dotenv.config();
 const app = express();
 
 app.use(bodyParser.json());
@@ -27,7 +29,9 @@ app.post("/login", async (req, res) => {
   try {
     ({ username, password } = extractLoginRequest(req));
     handleLogin(username, password).then(({ statusCode, body }) => {
-      res.status(statusCode).send(body);
+      const user = { name: username };
+      const accessToken = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET);
+      res.status(statusCode).send({ ...body, accessToken });
     });
   } catch (error) {
     console.error(error);
