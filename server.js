@@ -1,6 +1,7 @@
 const express = require("express");
 const bodyParser = require("body-parser");
 const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 
 const app = express();
 
@@ -24,28 +25,10 @@ app.get("/users", (req, res) => {
 
 app.post("/login", async (req, res) => {
   try {
-    const username = req.body.username;
-    const password = req.body.password;
-    const user = users.find(user => user.username === username);
-    if (user) {
-      const valid = await bcrypt.compare(password, user.password);
-      if (valid) {
-        res.status(200).send({
-          status: "Success",
-          message: "Logged In"
-        });
-      } else {
-        res.status(400).send({
-          status: "fail",
-          message: "Not Allowed"
-        });
-      }
-    } else {
-      res.status(400).send({
-        status: "fail",
-        message: "Cannot find user"
-      });
-    }
+    ({ username, password } = extractLoginRequest(req));
+    handleLogin(username, password).then(({ statusCode, body }) => {
+      res.status(statusCode).send(body);
+    });
   } catch (error) {
     console.error(error);
     res.status(500).send({
@@ -57,34 +40,14 @@ app.post("/login", async (req, res) => {
 
 app.post("/register", async (req, res) => {
   try {
-    console.log(req.body);
-    const username = req.body.username;
-    const password = req.body.password;
-    const passwordConfirmation = req.body.passwordConfirmation;
-    if (password !== passwordConfirmation) {
-      res.status(400).send({
-        status: "fail",
-        message: "password and password confirmation should be same"
-      });
-    } else {
-      const exist =
-        users.filter(user => user.username === username).length !== 0;
-      if (exist) {
-        res.status(400).send({
-          status: "fail",
-          message: "username already exists"
-        });
-      } else {
-        const salt = await bcrypt.genSalt();
-        const hashedPass = await bcrypt.hash(password, salt);
-
-        users.push({
-          username,
-          password: hashedPass
-        });
-        res.status(201).send();
+    ({ username, password, passwordConfirmation } = extractRegisterRequest(
+      req
+    ));
+    handleRegistration(username, password, passwordConfirmation).then(
+      ({ statusCode, body }) => {
+        res.status(statusCode).send(body);
       }
-    }
+    );
   } catch (error) {
     console.error(error);
     res.status(500).send({
@@ -99,3 +62,60 @@ app.get("/secrets", (req, res) => {
 });
 
 app.listen(3000);
+
+const extractLoginRequest = req => {
+  return ({ username, password } = req.body);
+};
+
+const extractRegisterRequest = req => {
+  return ({ username, password, passwordConfirmation } = req.body);
+};
+
+const handleRegistration = async (username, password, passwordConfirmation) => {
+  if (password !== passwordConfirmation) {
+    return {
+      statusCode: 400,
+      body: {
+        status: "fail",
+        message: "password and password confirmation should be same"
+      }
+    };
+  }
+  const exist = users.filter(user => user.username === username).length !== 0;
+  if (exist)
+    return {
+      statusCode: 400,
+      body: { status: "fail", message: "username already exists" }
+    };
+
+  const salt = await bcrypt.genSalt();
+  const hashedPass = await bcrypt.hash(password, salt);
+
+  users.push({
+    username,
+    password: hashedPass
+  });
+  return {
+    statusCode: 201
+  };
+};
+
+const handleLogin = async (username, password) => {
+  const user = users.find(user => user.username === username);
+  if (user) {
+    const valid = await bcrypt.compare(password, user.password);
+    if (valid)
+      return {
+        statusCode: 200,
+        body: { status: "Success", message: "Logged In" }
+      };
+    return {
+      statusCode: 400,
+      body: { status: "fail", message: "Not Allowed" }
+    };
+  }
+  return {
+    statusCode: 400,
+    body: { status: "fail", message: "Cannot find user" }
+  };
+};
