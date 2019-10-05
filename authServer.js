@@ -10,14 +10,41 @@ const app = express();
 app.use(bodyParser.json());
 
 const users = [];
+let refreshTokens = [];
+
+app.post("/token", (req, res) => {
+  const { refreshToken } = extractRefreshToken(req);
+
+  if (refreshToken == null) res.status(401).send();
+  else if (!refreshTokens.includes(refreshToken)) res.status(403).send();
+  else {
+    jwt.verify(
+      refreshToken,
+      process.env.REFRESH_TOKEN_SECRET,
+      (error, user) => {
+        if (error) res.status(403).send();
+        else {
+          const accessToken = generateAccessToken({ name: user.name });
+          res.status(200).send({ accessToken });
+        }
+      }
+    );
+  }
+});
 
 app.post("/login", async (req, res) => {
   try {
     ({ username, password } = extractLoginRequest(req));
     handleLogin(username, password).then(({ statusCode, body }) => {
-      const user = { name: username };
-      const accessToken = generateAccessToken(user);
-      res.status(statusCode).send({ ...body, accessToken });
+      if (statusCode == 200) {
+        const user = { name: username };
+        const accessToken = generateAccessToken(user);
+        const refreshToken = generateRefreshToken(user);
+        refreshTokens.push(refreshToken);
+        res.status(statusCode).send({ ...body, accessToken, refreshToken });
+      } else {
+        res.status(statusCode).send({ body });
+      }
     });
   } catch (error) {
     console.error(error);
@@ -51,6 +78,14 @@ app.listen(3000);
 
 const generateAccessToken = user => {
   return jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "1m" });
+};
+
+const generateRefreshToken = user => {
+  return jwt.sign(user, process.env.REFRESH_TOKEN_SECRET);
+};
+
+const extractRefreshToken = req => {
+  return ({ refreshToken } = req.body);
 };
 
 const extractLoginRequest = req => {
