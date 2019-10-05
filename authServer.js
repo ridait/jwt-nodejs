@@ -16,7 +16,7 @@ app.post("/login", async (req, res) => {
     ({ username, password } = extractLoginRequest(req));
     handleLogin(username, password).then(({ statusCode, body }) => {
       const user = { name: username };
-      const accessToken = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET);
+      const accessToken = generateAccessToken(user);
       res.status(statusCode).send({ ...body, accessToken });
     });
   } catch (error) {
@@ -48,6 +48,10 @@ app.post("/register", async (req, res) => {
 });
 
 app.listen(3000);
+
+const generateAccessToken = user => {
+  return jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "1m" });
+};
 
 const extractLoginRequest = req => {
   return ({ username, password } = req.body);
