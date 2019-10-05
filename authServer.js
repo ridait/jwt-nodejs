@@ -74,6 +74,12 @@ app.post("/register", async (req, res) => {
   }
 });
 
+app.delete("/logout", (req, res) => {
+  const { refreshToken } = extractRefreshToken(req);
+  refreshTokens = refreshTokens.filter(token => token !== refreshToken);
+  res.status(204).send();
+});
+
 app.listen(3000);
 
 const generateAccessToken = user => {
